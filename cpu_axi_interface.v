@@ -118,18 +118,22 @@ begin
 end 
 wire to_read_data;
 wire to_read_inst;
+wire to_read_complete;
 wire to_write_acaddr;
 wire to_write_acdata;
+
 assign to_read_data = rdstate == `read_init && data_req && data_wr == 0 && wrstate == `write_init;
 assign to_read_inst = rdstate == `read_init && inst_req && inst_wr == 0;
+assign to_read_complete = rdstate == `read_ready && rvalid;
 assign to_write_acaddr = wrstate == `write_init && data_req && data_wr == 1 && sign == 0;
 assign to_write_acdata = wrstate == `write_acaddr && awready;
+
 
 assign rdnext=(to_read_data)?`read_data:
               (to_read_inst)?`read_inst:
               (rdstate == `read_data && arready)?`read_ready:
               (rdstate == `read_inst && arready)?`read_ready:
-              (rdstate == `read_ready && rvalid)?`read_complete:
+              (to_read_complete)?`read_complete:
               (rdstate == `read_complete)?`read_init:
               rdstate;
 assign wrnext=(to_write_acaddr)?`write_acaddr:
@@ -190,7 +194,7 @@ begin
      rdata_r <= 0;
      rid_r 	 <= 0;
    end
-   else if(rdnext == `read_complete)
+   else if(to_read_complete)
    begin
      rdata_r <= rdata;
      rid_r 	 <= rid;
@@ -214,7 +218,7 @@ assign bready = (wrstate == `write_ready);
 assign inst_addr_ok = (rdstate == `read_init && (data_wr == 1 || data_req == 0)); // can execute an inst_read during a data_write operation
 assign inst_data_ok = (rdstate == `read_complete && rid_r == 0);
 assign inst_rdata = rdata_r;
-assign data_addr_ok = (rdnext == `read_data || wrnext == `write_acaddr);
+assign data_addr_ok = (to_read_data || to_write_acaddr);
 assign data_data_ok = (rdstate == `read_complete && rid_r == 1) || wrstate == `write_complete;
 assign rready = (rdstate == `read_ready);
 assign data_rdata = rdata_r;
