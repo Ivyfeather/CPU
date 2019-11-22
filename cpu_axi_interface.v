@@ -25,10 +25,9 @@
 `define read_complete 5
 `define write_init 6
 `define write_acaddr 7
-`define write_ready 8
-`define write_complete 9
-`define write_acdata 10
-
+`define write_acdata 8
+`define write_ready 9
+`define write_complete 10
 
 module cpu_axi_interface(
     input clk           ,
@@ -116,16 +115,25 @@ begin
      wrstate <= `write_init;
    else
      wrstate <= wrnext;
-end
-assign rdnext=(rdstate == `read_init && data_req && data_wr == 0 && wrstate == `write_init)?`read_data:
-              (rdstate == `read_init && inst_req && inst_wr == 0)?`read_inst:
+end 
+wire to_read_data;
+wire to_read_inst;
+wire to_write_acaddr;
+wire to_write_acdata;
+assign to_read_data = rdstate == `read_init && data_req && data_wr == 0 && wrstate == `write_init;
+assign to_read_inst = rdstate == `read_init && inst_req && inst_wr == 0;
+assign to_write_acaddr = wrstate == `write_init && data_req && data_wr == 1 && sign == 0;
+assign to_write_acdata = wrstate == `write_acaddr && awready;
+
+assign rdnext=(to_read_data)?`read_data:
+              (to_read_inst)?`read_inst:
               (rdstate == `read_data && arready)?`read_ready:
               (rdstate == `read_inst && arready)?`read_ready:
               (rdstate == `read_ready && rvalid)?`read_complete:
               (rdstate == `read_complete)?`read_init:
               rdstate;
-assign wrnext=(wrstate == `write_init && data_req && data_wr == 1 && sign == 0)?`write_acaddr:
-              (wrstate == `write_acaddr && awready)?`write_acdata:
+assign wrnext=(to_write_acaddr)?`write_acaddr:
+              (to_write_acdata)?`write_acdata:
               (wrstate == `write_acdata && wready)?`write_ready:
               (wrstate == `write_ready && bvalid == 1)?`write_complete:
               (wrstate == `write_complete)?`write_init:
@@ -158,7 +166,7 @@ begin
       awsize_r <= 0;
       wdata_r <= 0;
     end
-    else if(rdnext == `read_data || wrnext == `write_acaddr)
+    else if(to_read_data || to_write_acaddr)
     begin
       data_addr_r <= data_addr;
       data_arsize_r <= data_size;

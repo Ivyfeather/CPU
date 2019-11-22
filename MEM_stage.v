@@ -38,7 +38,9 @@ wire [ 6:0] fromexception;
 wire [ 6:0] toexception;
 wire [41:0] cp0_msg;
 wire        at_delay_slot;
-assign {at_delay_slot  ,  //164:164
+wire        es_store;
+assign {es_store       ,  //165:165
+        at_delay_slot  ,  //164:164
         cp0_msg        ,  //163:122
         fromexception  ,  //121:115
         addr_low2b[1:0],  //114:113
@@ -128,7 +130,25 @@ assign ms_to_ws_bus = {at_delay_slot  ,  //154:154
                        ms_pc             //31:0
                       };
 
-assign ms_ready_go    = (ms_res_from_mem && ~data_sram_dataok)? 1'b0: 1'b1;
+reg [ 3:0] num_of_unfinished_store;
+always @(posedge clk) begin
+  if (reset) begin
+    num_of_unfinished_store <= 0;
+  end
+  else if (es_store && ms_valid) begin
+    num_of_unfinished_store <= num_of_unfinished_store + 1;
+  end
+  else if(data_sram_dataok && num_of_unfinished_store>0) begin
+    num_of_unfinished_store <= num_of_unfinished_store - 1;
+  end
+end
+
+assign ms_ready_go    = //not returned store
+                        (num_of_unfinished_store != 0)? 1'b0:
+                        //not returned load
+                        (ms_res_from_mem && num_of_unfinished_store == 0 && ~data_sram_dataok)? 1'b0 :
+                        1'b1;
+
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
 always @(posedge clk) begin
