@@ -506,7 +506,7 @@ assign br_taken = (   inst_beq  &&  rs_eq_rt
                    || eret
                   ) && ds_valid;
 assign iszero = rs_value == 0;
-assign br_target = (branch_op)?             (fs_pc + {{14{imm[15]}}, imm[15:0], 2'b0}) :
+assign br_target = (branch_op)?             (fs_pc + 4 + {{14{imm[15]}}, imm[15:0], 2'b0}) :
                    (inst_jr | inst_jalr)?    rs_value :
                    (eret)               ?    EPC:
                   /*inst_jal || inst_j*/    {fs_pc[31:28], jidx[25:0], 2'b0};
