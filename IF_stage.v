@@ -102,12 +102,13 @@ always @(posedge clk) begin
     if (reset) begin
         inst_sram_req_r <= 1'b0;
     end
-    else if (fs_allowin) begin //can flow to IF, req = 1 ////
-        inst_sram_req_r <= 1'b1;
-    end
     else if (inst_sram_addrok) begin //addr accepted, do not send req anymore
        inst_sram_req_r <= 1'b0; 
     end
+    else if (fs_allowin) begin //can flow to IF, req = 1 ////
+        inst_sram_req_r <= 1'b1;
+    end
+
 end
 
 assign inst_sram_req = inst_sram_req_r;

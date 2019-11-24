@@ -215,7 +215,7 @@ assign awvalid = (wrstate == `write_acaddr);
 assign wdata = wdata_r;
 assign wvalid = (wrstate == `write_acaddr || wrstate == `write_acdata); //because we have already received wdata in write_acaddr alongwith waddr
 assign bready = (wrstate == `write_ready);
-assign inst_addr_ok = (rdstate == `read_init && (data_wr == 1 || data_req == 0)); // can execute an inst_read during a data_write operation
+assign inst_addr_ok = ~to_read_data && to_read_inst ; // can execute an inst_read during a data_write operation
 assign inst_data_ok = (rdstate == `read_complete && rid_r == 0);
 assign inst_rdata = rdata_r;
 assign data_addr_ok = (to_read_data || to_write_acaddr);
