@@ -8,6 +8,6 @@
     `define MS_TO_WS_BUS_WD 155
     `define WS_TO_RF_BUS_WD 41
     `define ES_RES          43
-    `define MS_RES          42
+    `define MS_RES          43
     `define WS_RES          42
 `endif

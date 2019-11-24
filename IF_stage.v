@@ -46,6 +46,52 @@ wire [6:0]  toexception;
 reg  [31:0] fs_pc;
 wire [31:0] bad_pc;
 wire PC_addr_error;
+
+// to store br_target
+reg         buf_valid;
+reg [31:0]  buf_npc;
+// truenpc = buf_valid? buf_pc : nextpc;
+// wire has_jump_to_brtarget;
+// assign has_jump_to_brtarget = nextpc == br_target;
+reg [ 1:0]  branch;
+always @(posedge clk) begin
+    if (reset) begin
+        branch <= 2'b0;
+    end
+
+    if (br_taken && inst_sram_addrok) begin //addr in delay slot accepted
+        branch <= branch + 2;
+    end
+    else if (br_taken) begin
+        branch <= branch + 1;
+    end
+    else if (branch && inst_sram_addrok) begin
+        branch <= branch + 1;
+    end
+end
+
+
+always @(posedge clk) begin
+    if (reset) begin
+        buf_valid <= 1'b0;
+    end
+    else if(buf_valid && inst_sram_addrok) begin
+        buf_valid <= 1'b0;
+        branch <= 1'b0;
+    end
+    else if (branch == 2 ) begin // has sent pc in delay slot /////
+        buf_valid <= 1'b1;
+    end
+
+    if(br_taken) begin
+        buf_npc <= br_target;
+    end
+
+end
+
+
+
+
 assign bad_pc = (PC_addr_error)? fs_pc : 32'b0;
 assign fs_to_ds_bus = {bad_pc,       //102:71
                        toexception, //70:64
@@ -57,9 +103,16 @@ assign fs_to_ds_bus = {bad_pc,       //102:71
 ////// evenif addrok lasts only 1 cycle  ...  is this ok?
 assign to_fs_valid  = ~reset && inst_sram_addrok;
 assign seq_pc       = fs_pc + 3'h4;
-assign nextpc       = wbexc ? 32'hbfc00380:
-                      br_taken ? br_target : 
-                      seq_pc; 
+//old
+// assign nextpc       = wbexc ? 32'hbfc00380:
+//                       br_taken ? br_target : 
+//                       seq_pc; 
+assign nextpc = wbexc? 32'hbfc00380:
+                buf_valid? buf_npc:
+                seq_pc;
+
+
+
 // PC addr error
 assign PC_addr_error = (fs_pc[1:0] != 2'b00)? 1 : 0;
 assign toexception = {  5'b0,           //6:2

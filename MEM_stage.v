@@ -195,7 +195,9 @@ assign mem_result = (byte)?      lb_rdata:
 assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;                                         
 wire res_from_cp0;
+wire ms_forward_valid;
+assign ms_forward_valid = ms_to_ws_valid;
 assign res_from_cp0 = (cp0_msg[41:40]==2'b10 || cp0_msg[41:40]==2'b01);                      
-assign ms_res={res_from_cp0, final_gr_we, ms_dest, ms_final_result};
+assign ms_res={ms_forward_valid, res_from_cp0, final_gr_we, ms_dest, ms_final_result};
 
 endmodule

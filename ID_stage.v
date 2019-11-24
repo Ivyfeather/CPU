@@ -425,11 +425,13 @@ assign { es_res_from_cp0,//42:42
          es_wdata        //31:0
         } = es_res;
 
+wire        ms_forward_valid;
 wire        ms_res_from_cp0;
 wire [ 3:0] ms_rf_we;
 wire [ 4:0] ms_waddr;
 wire [31:0] ms_wdata;
-assign { ms_res_from_cp0,//41:41
+assign { ms_forward_valid,//42:42
+         ms_res_from_cp0,//41:41
          ms_rf_we,       //40:37
          ms_waddr,       //36:32
          ms_wdata        //31:0
