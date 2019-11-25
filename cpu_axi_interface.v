@@ -244,9 +244,10 @@ assign wstrb=(data_addr_r[1:0] == 3 && awsize_r == 0)?4'b1000: //sb
              (data_addr_r[1:0] == 0 && awsize_r == 0)?4'b0001: //sb
              (data_addr_r[1:0] == 2 && awsize_r == 1)?4'b1100: //sh
              (data_addr_r[1:0] == 0 && awsize_r == 1)?4'b0011: //sh
-             (data_addr_r[1:0] == 1 && awsize_r == 1)?4'b0001: //swl
-             (data_addr_r[1:0] == 2 && awsize_r == 2)?4'b0011: //swl
-             (data_addr_r[1:0] == 3 && awsize_r == 2)?4'b0111: //swl
+             (data_addr_r[1:0] == 0 && awsize_r == 0)?4'b0001: //swl
+             (data_addr_r[1:0] == 1 && awsize_r == 1)?4'b0011: //swl
+             (data_addr_r[1:0] == 2 && awsize_r == 2)?4'b0111: //swl
+             (data_addr_r[1:0] == 3 && awsize_r == 3)?4'b1111:
              (data_addr_r[1:0] == 0 && awsize_r == 2)?4'b1111: //swr
              (data_addr_r[1:0] == 1 && awsize_r == 2)?4'b1110: //swr
              (data_addr_r[1:0] == 2 && awsize_r == 1)?4'b1100: //swr

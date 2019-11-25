@@ -20,7 +20,8 @@ module id_stage(
     output [`BR_BUS_WD       -1:0] br_bus        ,
     //to rf: for write back
     input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus,
-    input  [31:0]                  EPC
+    input  [31:0]                  EPC,
+    output                         wr_re1
 );
 
 reg         ds_valid   ;
@@ -204,7 +205,7 @@ end
 // TEST FOR GIT
 //======= handling exception =======
 
-assign ds_to_es_bus = (ds_ready_go==1'b0)?280'b0:
+assign ds_to_es_bus = (ds_ready_go==1'b0||ds_pc==32'b0)?280'b0:
                       {bad_pc       , //279:248       
                        at_delay_slot, //247:247
                        cp0_msg     ,  //246:205
@@ -449,6 +450,7 @@ assign { interrupt,     //41:41
 wire not_forward;
 assign not_forward = ((inst_addiu||load_op||store_op||inst_jr||inst_sltu)&& rf_raddr1 ==5'b00000) ||
                      (inst_jal) ||
+                     (inst_lui) ||
                      (rf_raddr1 == 5'b0 && rf_raddr2 == 5'b0)? 1'b1 : 1'b0;
 
 assign rs_value[ 7: 0] = (not_forward)?                          rf_rdata1[ 7: 0]:
@@ -488,6 +490,7 @@ assign rt_value[31:24] = (not_forward)?                          rf_rdata1[31:24
 assign ds_ready_go    = (wr_re == 1'b1)? 1'b0 : 1'b1;
 // wr_re == 1 means needs to block  
 assign wr_re=(not_forward)? 1'b0:
+             (ms_forward_valid==0&&(ms_waddr==rf_raddr1||ms_waddr==rf_raddr2)&&ms_waddr!=0)?1'b1:
              (es_load_op && es_waddr == rf_raddr1 && (inst_addiu|| load_op || store_op || inst_jr || inst_sltu))?1'b1:
              (es_load_op && ~inst_jal && (es_waddr == rf_raddr1 || es_waddr == rf_raddr2))?1'b1:
              (es_res_from_cp0 &&(es_waddr==rf_raddr1||es_waddr==rf_raddr2)||ms_res_from_cp0 &&(ms_waddr==rf_raddr1||ms_waddr==rf_raddr2))?1'b1:
@@ -495,7 +498,8 @@ assign wr_re=(not_forward)? 1'b0:
 
 // ====== forwarding ======        
 assign rs_eq_rt = (rs_value == rt_value);
-assign br_taken = (   inst_beq  &&  rs_eq_rt
+assign br_taken =  (wr_re)?0:
+                   (   inst_beq  &&  rs_eq_rt
                    || inst_bne  && !rs_eq_rt
                    || inst_jal
                    || inst_jr
@@ -508,9 +512,9 @@ assign br_taken = (   inst_beq  &&  rs_eq_rt
                    || eret
                   ) && ds_valid;
 assign iszero = rs_value == 0;
-assign br_target = (branch_op)?             (fs_pc + 4 + {{14{imm[15]}}, imm[15:0], 2'b0}) :
+assign br_target = (branch_op)?             (ds_pc  +4+ {{14{imm[15]}}, imm[15:0], 2'b0}) :
                    (inst_jr | inst_jalr)?    rs_value :
                    (eret)               ?    EPC:
                   /*inst_jal || inst_j*/    {fs_pc[31:28], jidx[25:0], 2'b0};
-
+assign wr_re1=wr_re;
 endmodule

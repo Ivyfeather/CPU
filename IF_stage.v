@@ -19,8 +19,9 @@ module if_stage(
     output [31:0] inst_sram_wdata ,
     input  [31:0] inst_sram_rdata ,
     input         inst_sram_addrok,
-    input         inst_sram_dataok
-// old
+    input         inst_sram_dataok,
+    input          wr_re
+    // old
     // output        inst_sram_en   ,
     // output [ 3:0] inst_sram_wen  ,
     // output [31:0] inst_sram_addr ,
@@ -46,10 +47,13 @@ wire [6:0]  toexception;
 reg  [31:0] fs_pc;
 wire [31:0] bad_pc;
 wire PC_addr_error;
-
+reg fs_ready_go_r;
 // to store br_target
 reg         buf_valid;
 reg [31:0]  buf_npc;
+reg [6 :0]  wbexc_r;
+reg         eret_r;
+reg [31:0]  EPC;
 // truenpc = buf_valid? buf_pc : nextpc;
 // wire has_jump_to_brtarget;
 // assign has_jump_to_brtarget = nextpc == br_target;
@@ -60,13 +64,13 @@ always @(posedge clk) begin
     end
 
     if (br_taken && inst_sram_addrok) begin //addr in delay slot accepted
-        branch <= branch + 2;
+        branch <= 2;
     end
-    else if (br_taken) begin
-        branch <= branch + 1;
+    else if (br_taken&&eret==0) begin
+        branch <= 1;
     end
-    else if (branch && inst_sram_addrok) begin
-        branch <= branch + 1;
+    else if (branch==1 && inst_sram_addrok) begin
+        branch <= 2;
     end
 end
 
@@ -79,7 +83,7 @@ always @(posedge clk) begin
         buf_valid <= 1'b0;
         branch <= 1'b0;
     end
-    else if (branch == 2 ) begin // has sent pc in delay slot /////
+    else if (branch == 2 ) begin // has sent pc in delay slot 
         buf_valid <= 1'b1;
     end
 
@@ -89,9 +93,9 @@ always @(posedge clk) begin
 
 end
 
-
 assign bad_pc = (PC_addr_error)? fs_pc : 32'b0;
-assign fs_to_ds_bus = {bad_pc,       //102:71
+assign fs_to_ds_bus =(wbexc_r||eret_r)?0: 
+                     {bad_pc,       //102:71
                        toexception, //70:64
                        fs_inst ,    //63:32
                        fs_pc        //31:0   
@@ -105,7 +109,8 @@ assign seq_pc       = fs_pc + 3'h4;
 // assign nextpc       = wbexc ? 32'hbfc00380:
 //                       br_taken ? br_target : 
 //                       seq_pc; 
-assign nextpc = wbexc? 32'hbfc00380:
+assign nextpc = wbexc_r? 32'hbfc00380:
+                eret_r? EPC  :
                 buf_valid? buf_npc:
                 seq_pc;
 
@@ -119,9 +124,17 @@ assign toexception = {  5'b0,           //6:2
                     };
 
 // IF stage
-assign fs_ready_go    = inst_sram_dataok;
-assign fs_allowin     = (wbexc)?1'b1:
-                         !fs_valid || fs_ready_go && ds_allowin;
+always @(posedge clk)
+begin
+   if(reset)
+      fs_ready_go_r<=0;
+   else if(inst_sram_dataok)
+      fs_ready_go_r<=1;
+   else if(ds_allowin&&fs_to_ds_valid)
+      fs_ready_go_r<=0;
+end
+assign fs_ready_go    = fs_ready_go_r;
+assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;
 assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin
     if (reset) begin
@@ -136,8 +149,6 @@ always @(posedge clk) begin
     end
     //else if(wbexc)
     //    fs_pc <= 32'hbfc00380;
-    else if(eret || wbexc)
-        fs_pc <= nextpc;
     else if (to_fs_valid && fs_allowin) begin
         fs_pc <= nextpc;
     end
@@ -161,8 +172,33 @@ always @(posedge clk) begin
     end
 
 end
-
-assign inst_sram_req = inst_sram_req_r;
+always @(posedge clk)
+begin
+   if(reset)
+      wbexc_r<=0;
+   else if(wbexc)
+      wbexc_r<=wbexc;
+   else if(inst_sram_addrok)
+      wbexc_r<=0;
+end
+always @(posedge clk)
+begin
+   if(reset)
+     eret_r<=0;
+   else if(eret)
+     eret_r<=1;
+   else if(inst_sram_addrok)
+     eret_r<=0;
+end
+always @(posedge clk)
+begin
+   if(reset)
+     EPC<=0;
+   else if(eret)
+     EPC<=br_target;
+end
+assign inst_sram_req =(wr_re==1)?0: 
+                      inst_sram_req_r;
 
 assign inst_sram_addr = nextpc;
 
@@ -173,5 +209,4 @@ assign inst_sram_wdata = 32'b0;
 
 // since it is only available when valid/ready_go signals are high
 assign fs_inst         = inst_sram_rdata;
-
 endmodule

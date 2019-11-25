@@ -53,6 +53,7 @@ wire [`WS_RES          -1:0] ws_res;
 wire [6:0]                   wbexc;
 wire [6:0]                   memexc;
 wire [31:0]                  EPC;
+wire                         wr_re;
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -73,7 +74,8 @@ if_stage if_stage(
     .inst_sram_rdata (inst_sram_rdata ),
     .inst_sram_addrok(inst_sram_addrok),
     .inst_sram_dataok(inst_sram_dataok),
-    .wbexc(wbexc)
+    .wbexc(wbexc),
+    .wr_re(wr_re)
 );
 // ID stage
 id_stage id_stage(
@@ -96,7 +98,8 @@ id_stage id_stage(
     //to rf: for write back
     .ws_to_rf_bus   (ws_to_rf_bus   ),
     .wbexc(wbexc),
-    .EPC(EPC)
+    .EPC(EPC),
+    .wr_re1(wr_re)
 );
 // EXE stage
 exe_stage exe_stage(

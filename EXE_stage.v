@@ -216,7 +216,7 @@ wire Is_store_op;
 assign Is_store_op = (data_sram_req && data_sram_wr && data_sram_addrok)? 1'b1:
                       1'b0;
 
-assign es_to_ms_bus = (es_ready_go==1'b0)?0:
+assign es_to_ms_bus = (es_ready_go==1'b0||es_pc==32'b0)?0:
                       {Is_store_op    ,  //165:165
                        at_delay_slot  ,  //164:164
                        cp0_msg        ,  //163:122
@@ -232,7 +232,7 @@ assign es_to_ms_bus = (es_ready_go==1'b0)?0:
                       };
 
 assign es_ready_go    = (div_ready_go==1'b0)?1'b0:
-                        (data_sram_req && ~data_sram_addrok)? 1'b0:     ////// load_op  addr not accepted
+                        (data_sram_req && ~data_sram_addrok)? 1'b0:     
                         1'b1;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = es_valid && es_ready_go;
@@ -249,7 +249,8 @@ always @(posedge clk) begin
         ds_to_es_bus_r <= ds_to_es_bus;
     end
     else if(div_ready_go==0 && (es_alu_op[14]||es_alu_op[15]) );
-    else if((es_load_op||es_mem_we) && ~data_sram_addrok) ;
+    else if((es_load_op||es_mem_we)) ;
+    else if(ms_allowin==0);
     else 
         ds_to_es_bus_r<=0;
 end
@@ -317,7 +318,6 @@ always @(posedge clk) begin
     data_sram_req_r <= 1'b0;
   end
   //load
-
   //higher prior
   else if (ds_to_es_valid && es_allowin) begin
     data_sram_req_r <= 1'b1;
@@ -335,7 +335,8 @@ always @(posedge clk) begin
 end
 //since es_load_op and es_mem_we will appear after edge
 // while in sequential logic upahead, ds_to_es_valid and es_allowin is high before edge
-assign data_sram_req= (es_load_op || es_mem_we)?  data_sram_req_r: 1'b0;
+assign data_sram_req=(memexc||wbexc||address_error_write)?1'b0: 
+                     (es_load_op || es_mem_we)?  data_sram_req_r: 1'b0;
 assign data_sram_wr = es_mem_we;
 
 //assign data_sram_en    = 1'b1;
