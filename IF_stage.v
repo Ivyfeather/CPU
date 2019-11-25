@@ -90,8 +90,6 @@ always @(posedge clk) begin
 end
 
 
-
-
 assign bad_pc = (PC_addr_error)? fs_pc : 32'b0;
 assign fs_to_ds_bus = {bad_pc,       //102:71
                        toexception, //70:64
@@ -172,13 +170,6 @@ assign inst_sram_addr = nextpc;
 assign inst_sram_wr = 1'b0;
 assign inst_sram_size = 2'd2;
 assign inst_sram_wdata = 32'b0;
-
-////// this loads inst 1 cycle after dataok ??
-////// but readygo = dataok (wire, instantly)
-////// will pass the inst 1 cycle age?
-////// (always reg fs_inst_r)
-////// yes... it will
-
 
 // since it is only available when valid/ready_go signals are high
 assign fs_inst         = inst_sram_rdata;

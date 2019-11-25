@@ -71,8 +71,6 @@ wire [31:0] cpu_data_rdata;
 wire        cpu_data_addr_ok;
 wire        cpu_data_data_ok;
 
-////// !!! add externel interrupt signal in mycpu, wb_stage
-////// !!! use size instead of strb, add size in mycpu
 mycpu cpu(
     .int              ( int              ),
 
@@ -105,7 +103,7 @@ mycpu cpu(
     .debug_wb_rf_wnum ( debug_wb_rf_wnum ),
     .debug_wb_rf_wdata( debug_wb_rf_wdata)
 );
-////// !!! add wstrb in cpu_axi_interface
+
 cpu_axi_interface bridge(
     .clk           ( aclk          ),
     .resetn        ( aresetn       ),

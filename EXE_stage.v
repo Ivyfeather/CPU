@@ -86,7 +86,7 @@ assign syscall          = 0;
 assign address_error_read  = 0;
 assign address_error_write = (es_mem_we && word     && addr_low2b[1:0]!=2'b00 ) ||
                              (es_mem_we && halfword && addr_low2b[0]  !=1'b0  );
-//////
+
 wire [31:0] bad_pc;
 // has addr_error_read in IF
 assign es_badvaddr = fromexception[1]? bad_pc : es_alu_result;
@@ -317,7 +317,7 @@ always @(posedge clk) begin
     data_sram_req_r <= 1'b0;
   end
   //load
-  ////// ?????? refer to IF
+
   //higher prior
   else if (ds_to_es_valid && es_allowin) begin
     data_sram_req_r <= 1'b1;
