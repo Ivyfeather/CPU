@@ -72,6 +72,9 @@ always @(posedge clk) begin
     else if (branch==1 && inst_sram_addrok) begin
         branch <= 2;
     end
+    else if (buf_valid && inst_sram_addrok) begin
+        branch <= 1'b0;
+    end
 end
 
 
@@ -81,7 +84,6 @@ always @(posedge clk) begin
     end
     else if(buf_valid && inst_sram_addrok) begin
         buf_valid <= 1'b0;
-        branch <= 1'b0;
     end
     else if (branch == 2 ) begin // has sent pc in delay slot 
         buf_valid <= 1'b1;
