@@ -73,7 +73,7 @@ always @(posedge clk) begin
         branch <= 2;
     end
     else if (buf_valid && inst_sram_addrok) begin
-        branch <= 1'b0;
+        branch <= 2'b0;
     end
 end
 
