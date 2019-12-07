@@ -39,7 +39,10 @@ wire [ 6:0] toexception;
 wire [41:0] cp0_msg;
 wire        at_delay_slot;
 wire        es_store;
-assign {es_store       ,  //165:165
+wire [ 2:0] tlb_type;
+
+assign {tlb_type       ,  //168:166
+        es_store       ,  //165:165
         at_delay_slot  ,  //164:164
         cp0_msg        ,  //163:122
         fromexception  ,  //121:115
@@ -120,7 +123,8 @@ assign final_gr_we = (ms_gr_we[0] == 0)? 4'h0:  //no need to write RF
                      (right)?            lwr_strb:
                                          4'hf;
 
-assign ms_to_ws_bus = {at_delay_slot  ,  //154:154
+assign ms_to_ws_bus = {tlb_type       ,  //157:155
+                       at_delay_slot  ,  //154:154
                        cp0_msg        ,  //153:112
                        toexception    ,  //111:105
                        to_badvaddr    ,  //104:73

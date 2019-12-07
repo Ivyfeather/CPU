@@ -147,6 +147,12 @@ wire        inst_mfc0;
 wire        inst_syscall;
 wire        inst_break;
 
+wire        inst_tlbp;
+wire        inst_tlbwi;
+wire        inst_tlbr;
+
+//when adding new instructions, 
+// don't forget to add(exclude) them in 'reserved instruction' exception
 
 wire        dst_is_r31;  
 wire        dst_is_rt;   
@@ -160,6 +166,7 @@ wire        rs_eq_rt;
 wire        wr_re;
 wire [41:0] cp0_msg;
 wire [ 6:0] memop_type;
+wire [ 2:0] tlb_type;
 
 assign br_bus       = {eret, br_taken, br_target};
 assign load_op      = inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lwl | inst_lwr | inst_mfc0;
@@ -202,11 +209,15 @@ always @(posedge clk) begin
     at_delay_slot <= 1'b0;
 end
 
-// TEST FOR GIT
+assign tlb_type = { inst_tlbp,      //2:2
+                    inst_tlbwi,     //1:1
+                    inst_tlbr       //0:0
+                 };
 //======= handling exception =======
 
-assign ds_to_es_bus = (ds_ready_go==1'b0||ds_pc==32'b0)?280'b0:
-                      {bad_pc       , //279:248       
+assign ds_to_es_bus = (ds_ready_go==1'b0||ds_pc==32'b0)?283'b0:
+                      {tlb_type     , //282:280
+                       bad_pc       , //279:248       
                        at_delay_slot, //247:247
                        cp0_msg     ,  //246:205
                        toexception ,  //204:198
@@ -331,11 +342,16 @@ assign inst_bltzal = op_d[6'h01] & rt_d[5'h10];
 assign inst_j      = op_d[6'h02];
 assign inst_jalr   = op_d[6'h00] & rt_d[5'h00] & sa_d[5'h00] & func_d[6'h09];
 //lab 8 & 9
-assign inst_eret   = op_d[6'h10] & rs_d[5'h10] & rt_d[5'h00] & rd_d[5'h00] & sa_d[5'h00] &func_d[6'h18];
+assign inst_eret   = op_d[6'h10] & rs_d[5'h10] & rt_d[5'h00] & rd_d[5'h00] & sa_d[5'h00] & func_d[6'h18];
 assign inst_mfc0   = op_d[6'h10] & rs_d[5'h00] & sa_d[5'h00];
 assign inst_mtc0   = op_d[6'h10] & rs_d[5'h04] & sa_d[5'h00];
 assign inst_syscall= op_d[6'h00] & func_d[6'h0c];
 assign inst_break  = op_d[6'h00] & func_d[6'h0d];
+assign inst_tlbp   = op_d[6'h10] & rs_d[5'h10] & rt_d[5'h00] & rd_d[5'h00] & sa_d[5'h00] & func_d[6'h08];
+assign inst_tlbwi  = op_d[6'h10] & rs_d[5'h10] & rt_d[5'h00] & rd_d[5'h00] & sa_d[5'h00] & func_d[6'h02];
+assign inst_tlbr   = op_d[6'h10] & rs_d[5'h10] & rt_d[5'h00] & rd_d[5'h00] & sa_d[5'h00] & func_d[6'h01];
+
+
 // cp0 related info
 assign cp0_msg[41:40] = (inst_mtc0)? 2'b01 :
                         (inst_mfc0)? 2'b10 :
@@ -360,6 +376,8 @@ wire is_linkr;
 assign is_linkr =  inst_jal | inst_jalr | inst_bltzal | inst_bgezal;
 wire jump_op;
 assign jump_op = inst_j | inst_jr | inst_jal | inst_jalr;
+wire TLB_op;
+assign TLB_op = inst_tlbr | inst_tlbp | inst_tlbwi;
 
 // alu op
 assign alu_op[ 0] = inst_addu | inst_addiu | load_op | store_op | is_linkr | inst_add | inst_addi;
@@ -397,7 +415,7 @@ assign dest         = dst_is_r31 ? 5'd31 :
                                    rd;
 
 // exclude all inst                                  
-assign reserved_instruction = ~(alu_op || (branch_op | jump_op | mul_div |
+assign reserved_instruction = ~(alu_op || (branch_op | jump_op | TLB_op | mul_div |
                                inst_eret | inst_mfc0 | inst_mtc0 | inst_syscall | inst_break) );
 
 assign rf_raddr1 = rs;

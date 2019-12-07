@@ -31,8 +31,11 @@ module exe_stage(
     input  [19:0] s1_pfn,         // pfn, use odd_page to choose between pfn0 and pfn1 in TLB-entry
     input  [ 2:0] s1_c,
     input     s1_d,
-    input     s1_v    
+    input     s1_v,
 
+    // TLBP from WB
+    input  TLBP,
+    input  [31:0] EntryHi
 );
 
 reg         es_valid      ;
@@ -65,7 +68,7 @@ wire halfword;
 wire left;
 wire right;
 wire [31:0] es_badvaddr;
-
+wire [ 2:0] tlb_type;
 //******* handling exception *******
 wire [6:0]  fromexception;
 wire [6:0]  toexception;
@@ -116,7 +119,8 @@ assign toexception[2:0]  = exception[2:0] | fromexception[2:0];
 //======= handling exception =======
 wire        at_delay_slot;
 
-assign {bad_pc         ,  //279:248
+assign {tlb_type       ,  //282:280
+        bad_pc         ,  //279:248
         at_delay_slot  ,  //247:247
         cp0_msg        ,  //246:205
         fromexception  ,  //204:198
@@ -222,7 +226,8 @@ assign Is_store_op = (data_sram_req && data_sram_wr && data_sram_addrok)? 1'b1:
                       1'b0;
 
 assign es_to_ms_bus = (es_ready_go==1'b0||es_pc==32'b0)?0:
-                      {Is_store_op    ,  //165:165
+                      {tlb_type       ,  //168:166
+                       Is_store_op    ,  //165:165
                        at_delay_slot  ,  //164:164
                        cp0_msg        ,  //163:122
                        toexception    ,  //121:115

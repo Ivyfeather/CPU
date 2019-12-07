@@ -112,6 +112,8 @@ wire [ 2:0] r_c1;
 wire r_d1;
 wire r_v1;
 
+wire [31:0] EntryHi;
+wire TLBP;
 
 // IF stage
 if_stage if_stage(
@@ -202,7 +204,10 @@ exe_stage exe_stage(
     .s1_pfn          (s1_pfn),          // pfn, use odd_page to choose between pfn0 and pfn1 in TLB-entry
     .s1_c            (s1_c),
     .s1_d            (s1_d),
-    .s1_v            (s1_v)
+    .s1_v            (s1_v),
+    // TLBP from WB
+    .EntryHi         (EntryHi),
+    .TLBP            (TLBP)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -265,6 +270,8 @@ wb_stage wb_stage(
     .r_d1           (r_d1),
     .r_v1           (r_v1),
 
+    .EntryHi        (EntryHi),
+    .TLBP           (TLBP),
     //trace debug interface
     .debug_wb_pc      (debug_wb_pc      ),
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),

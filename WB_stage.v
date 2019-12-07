@@ -47,6 +47,9 @@ module wb_stage(
     input  r_d1,
     input  r_v1,
 
+    output TLBP,
+    output [31:0] EntryHi,
+
     //trace debug interface
     input  [31:0] debug_wb_pc     ,
     input  [ 3:0] debug_wb_rf_wen ,
@@ -66,7 +69,9 @@ wire [31:0] ws_pc;
 wire [31:0] wb_badvaddr;
 wire [41:0] cp0_msg;
 wire at_delay_slot;
-assign {at_delay_slot  ,  //154:154
+wire [ 2:0] tlb_type;
+assign {tlb_type       ,  //157:155
+        at_delay_slot  ,  //154:154
         cp0_msg        ,  //153:112
         exception      ,  //111:105
         wb_badvaddr    ,  //104:73
@@ -99,6 +104,14 @@ wire eret;
 assign mtc0 = (cp0_msg[41:40] == 2'b01)? 1 : 0;
 assign mfc0 = (cp0_msg[41:40] == 2'b10)? 1 : 0;
 assign eret = (cp0_msg[41:40] == 2'b11)? 1 : 0;
+
+wire tlbp;
+wire tlbwi;
+wire tlbr;
+assign  { tlbp,      //2:2
+          tlbwi,     //1:1
+          tlbr       //0:0
+         } = tlb_type;
 
 wire addr_cp0_status;
 wire addr_cp0_cause;
@@ -306,6 +319,9 @@ assign CP0_Index = {
                     27'b0,  //30:4
                     Index   //3:0
                     };
+
+// TLB 
+
 
 
 
