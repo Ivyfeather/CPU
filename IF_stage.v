@@ -20,14 +20,24 @@ module if_stage(
     input  [31:0] inst_sram_rdata ,
     input         inst_sram_addrok,
     input         inst_sram_dataok,
-    input          wr_re
-    // old
-    // output        inst_sram_en   ,
-    // output [ 3:0] inst_sram_wen  ,
-    // output [31:0] inst_sram_addr ,
-    // output [31:0] inst_sram_wdata,
-    // input  [31:0] inst_sram_rdata    
+    input          wr_re,
+    // TLB
+    output [18:0] s0_vpn2,        // vaddr 31~13 bits 
+    output s0_odd_page,          // vaddr 12 bit
+    output [ 7:0] s0_asid,         // ASID       
+    input  s0_found,          // CP0_Index highest bit
+    input  [ 3:0] s0_index,// index
+    input  [19:0] s0_pfn,         // pfn, use odd_page to choose between pfn0 and pfn1 in TLB-entry
+    input  [ 2:0] s0_c,
+    input     s0_d,
+    input     s0_v    
+
 );
+////// not yet use TLB
+assign s0_vpn2 = 19'b0;
+assign s0_odd_page = 0;
+assign s0_asid = 8'b0;
+//////
 
 reg         fs_valid;
 wire        fs_ready_go;

@@ -13,12 +13,46 @@ module wb_stage(
     output [`WS_TO_RF_BUS_WD -1:0]  ws_to_rf_bus  ,
     output [`WS_RES          -1:0]  ws_res,
     output [ 6:0]                   exception     ,
+
+//write port
+    output we,
+    output [ 3:0]w_index,
+    output [18:0]w_vpn2,
+    output [ 7:0]w_asid,
+    output w_g,
+
+    output [19:0]w_pfn0,
+    output [ 2:0]w_c0,
+    output w_d0,
+    output w_v0,
+
+    output [19:0] w_pfn1,
+    output [ 2:0] w_c1,
+    output w_d1,
+    output w_v1,
+
+ // read port
+    output [ 3:0] r_index,
+    input  [18:0] r_vpn2,
+    input  [ 7:0] r_asid,
+    input  r_g,
+
+    input  [19:0] r_pfn0,
+    input  [ 2:0] r_c0,
+    input  r_d0,
+    input  r_v0,
+
+    input  [19:0] r_pfn1,
+    input  [ 2:0] r_c1,
+    input  r_d1,
+    input  r_v1,
+
     //trace debug interface
-    output [31:0] debug_wb_pc     ,
-    output [ 3:0] debug_wb_rf_wen ,
-    output [ 4:0] debug_wb_rf_wnum,
-    output [31:0] debug_wb_rf_wdata,
-    output [31:0] EPC
+    input  [31:0] debug_wb_pc     ,
+    input  [ 3:0] debug_wb_rf_wen ,
+    input  [ 4:0] debug_wb_rf_wnum,
+    input  [31:0] debug_wb_rf_wdata,
+    input  [31:0] EPC
 );
 
 reg         ws_valid;
@@ -72,8 +106,17 @@ wire addr_cp0_EPC;
 wire addr_cp0_COUNT;
 wire addr_cp0_COMPARE;
 wire addr_cp0_BADVADDR;
+wire addr_cp0_EntryHi;
+wire addr_cp0_EntryLo0;
+wire addr_cp0_EntryLo1;
+wire addr_cp0_Index;
+
+assign addr_cp0_Index   = (cp0_msg[36:32] == 5'h00)? 1 : 0;
+assign addr_cp0_EntryLo0= (cp0_msg[36:32] == 5'h02)? 1 : 0;
+assign addr_cp0_EntryLo1= (cp0_msg[36:32] == 5'h03)? 1 : 0;
 assign addr_cp0_BADVADDR= (cp0_msg[36:32] == 5'h08)? 1 : 0;
 assign addr_cp0_COUNT   = (cp0_msg[36:32] == 5'h09)? 1 : 0;
+assign addr_cp0_EntryHi = (cp0_msg[36:32] == 5'h0a)? 1 : 0;
 assign addr_cp0_COMPARE = (cp0_msg[36:32] == 5'h0b)? 1 : 0;
 assign addr_cp0_status  = (cp0_msg[36:32] == 5'h0c)? 1 : 0;
 assign addr_cp0_cause   = (cp0_msg[36:32] == 5'h0d)? 1 : 0;
@@ -230,6 +273,42 @@ always @(posedge clk) begin
   if (exception && (address_error_read || address_error_write) ) 
     CP0_BADVADDR <= wb_badvaddr;
 end
+
+
+//========= CP0_EntryHi =========
+reg [18:0] VPN2;
+reg [7:0] ASID;
+
+
+wire [31:0] CP0_EntryHi;
+assign CP0_EntryHi = {
+                       VPN2,  //31:13
+                       5'b0,  //12:8
+                       ASID   //7:0
+                      };
+//========= CP0_EntryLo =========
+//31~26:0,    25~6:PFN,   5~3:C,    2:D,    1:V,    0:G 
+reg [31:0] CP0_EntryLo0;
+reg [31:0] CP0_EntryLo1;
+
+
+
+
+//========= CP0_Index =========
+//Index 3~0 bits
+reg   Found;
+reg   [3:0] Index;
+
+
+wire  [31:0] CP0_Index;
+assign CP0_Index = {
+                    Found,  //31:31
+                    27'b0,  //30:4
+                    Index   //3:0
+                    };
+
+
+
 
 
 wire [3 :0] rf_we;

@@ -21,13 +21,18 @@ module exe_stage(
     output [ 1:0]    data_sram_size  ,
     output [31:0]    data_sram_addr  ,
     output [31:0]    data_sram_wdata ,
-    input            data_sram_addrok
+    input            data_sram_addrok,
+    // TLB
+    output [18:0] s1_vpn2,        // vaddr 31~13 bits 
+    output s1_odd_page,          // vaddr 12 bit
+    output [ 7:0] s1_asid,         // ASID       
+    input  s1_found,          // CP0_Index highest bit
+    input  [ 3:0] s1_index,// index
+    input  [19:0] s1_pfn,         // pfn, use odd_page to choose between pfn0 and pfn1 in TLB-entry
+    input  [ 2:0] s1_c,
+    input     s1_d,
+    input     s1_v    
 
-//old
-    // output        data_sram_en   ,
-    // output [ 3:0] data_sram_wen  ,
-    // output [31:0] data_sram_addr ,
-    // output [31:0] data_sram_wdata
 );
 
 reg         es_valid      ;
@@ -391,4 +396,21 @@ assign lo1=(es_alu_op[12])?mult_result[31:0]:
            (es_alu_op[15])?divu_result[63:32]:
            lo;
 //====== assessing memory operations ======
+
+
+//****** TLB operations ******
+/*    output [18:0] s1_vpn2,        // vaddr 31~13 bits 
+    output s1_odd_page,          // vaddr 12 bit
+    output [ 7:0] s1_asid,         // ASID       
+    input  s1_found,          // CP0_Index highest bit
+    input  [ 3:0] s1_index,// index
+    input  [19:0] s1_pfn,         // pfn, use odd_page to choose between pfn0 and pfn1 in TLB-entry
+    input  [ 2:0] s1_c,
+    input     s1_d,
+    input     s1_v    */
+
+
+
+
+//====== TLB operations ======
 endmodule
