@@ -407,7 +407,7 @@ assign src2_is_8    = is_linkr;
 assign res_from_mem = load_op;  
 assign dst_is_r31   = is_linkr;
 assign dst_is_rt    = inst_addiu | inst_lui | load_op | inst_addi | inst_slti | inst_sltiu | inst_andi | inst_ori | inst_xori;
-assign gr_we        = (~store_op & ~branch_not_al & ~inst_jr & ~inst_j & 
+assign gr_we        = (~store_op & ~branch_not_al & ~inst_jr & ~inst_j & ~TLB_op & ~inst_mtc0 & ~inst_eret & ~inst_syscall & ~inst_break &
                       ~inst_mult & ~inst_multu & ~inst_div & ~inst_divu & ~inst_mthi & ~inst_mtlo)? 4'hf : 4'h0;
 assign mem_we       = store_op;
 assign dest         = dst_is_r31 ? 5'd31 :

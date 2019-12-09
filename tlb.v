@@ -440,9 +440,9 @@ assign r_c0=tlb_c0[r_index];
 assign r_d0=tlb_d0[r_index];
 assign r_v0=tlb_v0[r_index];
 assign r_pfn1=tlb_pfn1[r_index];
-assign r_c1=tlb_c0[r_index];
-assign r_d1=tlb_d0[r_index];
-assign r_v1=tlb_v0[r_index];
+assign r_c1=tlb_c1[r_index];
+assign r_d1=tlb_d1[r_index];
+assign r_v1=tlb_v1[r_index];
 always @(posedge clk)
 begin
    if(we)begin
@@ -459,6 +459,6 @@ begin
      tlb_v1[w_index]<=w_v1;
    end
 end
-assign s0_found=match0[0]^match0[1]^match0[2]^match0[3]^match0[4]^match0[5]^match0[6]^match0[7]^match0[8]^match0[9]^match0[10]^match0[11]^match0[12]^match0[13]^match0[14]^match0[15];  
-assign s1_found=match1[0]^match1[1]^match1[2]^match1[3]^match1[4]^match1[5]^match1[6]^match1[7]^match1[8]^match1[9]^match1[10]^match1[11]^match1[12]^match1[13]^match1[14]^match1[15];      
+assign s0_found=match0[0]|match0[1]|match0[2]|match0[3]|match0[4]|match0[5]|match0[6]|match0[7]|match0[8]|match0[9]|match0[10]|match0[11]|match0[12]|match0[13]|match0[14]|match0[15];  
+assign s1_found=match1[0]|match1[1]|match1[2]|match1[3]|match1[4]|match1[5]|match1[6]|match1[7]|match1[8]|match1[9]|match1[10]|match1[11]|match1[12]|match1[13]|match1[14]|match1[15];      
 endmodule

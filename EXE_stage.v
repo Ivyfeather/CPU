@@ -35,7 +35,8 @@ module exe_stage(
 
     // TLBP from WB
     input  TLBP,
-    input  [31:0] EntryHi
+    input  [31:0] EntryHi,
+    output [ 5:0] TLBP_result
 );
 
 reg         es_valid      ;
@@ -241,7 +242,7 @@ assign es_to_ms_bus = (es_ready_go==1'b0||es_pc==32'b0)?0:
                        es_pc             //31:0
                       };
 
-assign es_ready_go    = (div_ready_go==1'b0)?1'b0:
+assign es_ready_go    = (div_ready_go==1'b0)? 1'b0:
                         (data_sram_req && ~data_sram_addrok)? 1'b0:     
                         1'b1;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
@@ -404,7 +405,7 @@ assign lo1=(es_alu_op[12])?mult_result[31:0]:
 
 
 //****** TLB operations ******
-/*    output [18:0] s1_vpn2,        // vaddr 31~13 bits 
+/*  output [18:0] s1_vpn2,        // vaddr 31~13 bits 
     output s1_odd_page,          // vaddr 12 bit
     output [ 7:0] s1_asid,         // ASID       
     input  s1_found,          // CP0_Index highest bit
@@ -412,10 +413,25 @@ assign lo1=(es_alu_op[12])?mult_result[31:0]:
     input  [19:0] s1_pfn,         // pfn, use odd_page to choose between pfn0 and pfn1 in TLB-entry
     input  [ 2:0] s1_c,
     input     s1_d,
-    input     s1_v    */
+    input     s1_v    
 
+    // TLBP from WB
+    input  TLBP,
+    input  [31:0] EntryHi,
+    output [ 5:0] TLBP_result
+*/
+//////choose between TLBP and MMU, using TLBP signal
+assign s1_vpn2 = EntryHi[31:13];
+assign s1_odd_page = EntryHi[12];
+assign s1_asid = EntryHi[7:0];
 
+wire TLBP_valid;
+assign TLBP_valid = 1'b1;
 
+assign TLBP_result = {TLBP_valid, //5:5
+                      ~s1_found,   //4:4
+                      s1_index    //3:0
+                    };
 
 //====== TLB operations ======
 endmodule

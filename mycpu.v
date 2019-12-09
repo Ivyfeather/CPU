@@ -114,7 +114,7 @@ wire r_v1;
 
 wire [31:0] EntryHi;
 wire TLBP;
-
+wire [ 5:0] TLBP_result;
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -207,7 +207,8 @@ exe_stage exe_stage(
     .s1_v            (s1_v),
     // TLBP from WB
     .EntryHi         (EntryHi),
-    .TLBP            (TLBP)
+    .TLBP            (TLBP),
+    .TLBP_result     (TLBP_result)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -272,6 +273,7 @@ wb_stage wb_stage(
 
     .EntryHi        (EntryHi),
     .TLBP           (TLBP),
+    .TLBP_result    (TLBP_result),
     //trace debug interface
     .debug_wb_pc      (debug_wb_pc      ),
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),
@@ -284,6 +286,7 @@ wb_stage wb_stage(
 // search 0 in IF, search 1 in EXE
 // read and write in WB
 tlb tlb(
+    .clk        (clk),
 // search port 0
     .s0_vpn2    (s0_vpn2),                // vaddr 31~13 bits 
     .s0_odd_page(s0_odd_page),            // vaddr 12 bit

@@ -49,7 +49,7 @@ module wb_stage(
 
     output TLBP,
     output [31:0] EntryHi,
-
+    input  [ 5:0] TLBP_result,
     //trace debug interface
     input  [31:0] debug_wb_pc     ,
     input  [ 3:0] debug_wb_rf_wen ,
@@ -290,7 +290,21 @@ end
 
 //========= CP0_EntryHi =========
 reg [18:0] VPN2;
-reg [7:0] ASID;
+reg [ 7:0] ASID;
+always @(posedge clk)
+begin
+    if(mtc0_we && addr_cp0_EntryHi) begin
+      VPN2 <= cp0_msg[31:13];
+      ASID <= cp0_msg[ 7: 0];
+    end
+    else if (tlbr && ws_valid && !exception) begin
+      VPN2 <= r_vpn2;
+      ASID <= r_asid;
+    end
+
+end 
+
+
 
 
 wire [31:0] CP0_EntryHi;
@@ -301,17 +315,71 @@ assign CP0_EntryHi = {
                       };
 //========= CP0_EntryLo =========
 //31~26:0,    25~6:PFN,   5~3:C,    2:D,    1:V,    0:G 
-reg [31:0] CP0_EntryLo0;
-reg [31:0] CP0_EntryLo1;
+reg [19:0] PFN0;
+reg [ 2:0] C0;
+reg D0;
+reg V0;
+reg G0;
+always @(posedge clk) begin
+  if (mtc0_we && addr_cp0_EntryLo0) begin
+    PFN0 <= cp0_msg[25:6];
+    C0   <= cp0_msg[ 5:3];
+    D0   <= cp0_msg[ 2];
+    V0   <= cp0_msg[ 1];
+    G0   <= cp0_msg[ 0];
+  end
+  else if (tlbr && ws_valid && !exception) begin
+    PFN0 <= r_pfn0;
+    C0   <= r_c0;
+    D0   <= r_d0;
+    V0   <= r_v0;
+    G0   <= r_g;    
+  end
+end
 
+reg [19:0] PFN1;
+reg [ 2:0] C1;
+reg D1;
+reg V1;
+reg G1;
+always @(posedge clk) begin
+  if (mtc0_we && addr_cp0_EntryLo1) begin
+    PFN1 <= cp0_msg[25:6];
+    C1   <= cp0_msg[ 5:3];
+    D1   <= cp0_msg[ 2];
+    V1   <= cp0_msg[ 1];
+    G1   <= cp0_msg[ 0];
+  end
+  else if (tlbr && ws_valid && !exception) begin
+    PFN1 <= r_pfn1;
+    C1   <= r_c1;
+    D1   <= r_d1;
+    V1   <= r_v1;
+    G1   <= r_g;    
+  end
+end
 
-
+wire [31:0] CP0_EntryLo0;
+wire [31:0] CP0_EntryLo1;
+assign CP0_EntryLo0 = {6'b0, PFN0, C0, D0, V0, G0};
+assign CP0_EntryLo1 = {6'b0, PFN1, C1, D1, V1, G1};
 
 //========= CP0_Index =========
 //Index 3~0 bits
 reg   Found;
 reg   [3:0] Index;
+always @(posedge clk)
+begin
+    if(mtc0_we && addr_cp0_Index) begin
+      //write to Found not allowed
+      Index <= cp0_msg[ 3:0];
+    end
+    else if (tlbp && TLBP_valid && ws_valid && !exception) begin ////// refer to mtc0_we = ws_valid && mtc0 && !exception; ???
+      Found <= TLBP_found;
+      Index <= TLBP_index;
+    end
 
+end 
 
 wire  [31:0] CP0_Index;
 assign CP0_Index = {
@@ -321,10 +389,35 @@ assign CP0_Index = {
                     };
 
 // TLB 
+assign TLBP = tlbp;
+assign EntryHi = CP0_EntryHi;
 
+wire TLBP_valid;
+wire TLBP_found;
+wire [3:0] TLBP_index;
+assign {TLBP_valid,   //5:5
+        TLBP_found,   //4:4
+        TLBP_index    //3:0
+      } = TLBP_result;
 
+//TLBWI
+assign we = tlbwi; //////???
+assign w_index = Index;
+assign w_vpn2 = VPN2;
+assign w_asid = ASID;
+assign w_g = G0 & G1;
 
+assign w_pfn0 = PFN0;
+assign w_c0 = C0;
+assign w_d0 = D0;
+assign w_v0 = V0;
 
+assign w_pfn1 = PFN1;
+assign w_c1 = C1;
+assign w_d1 = D1;
+assign w_v1 = V1;
+
+assign r_index = Index;
 
 
 wire [3 :0] rf_we;
@@ -365,6 +458,10 @@ assign rf_wdata =(mfc0 && addr_cp0_status)?  cp0_status:
                  (mfc0 && addr_cp0_COMPARE)? CP0_COMPARE:
                  (mfc0 && addr_cp0_COUNT)?   CP0_COUNT:
                  (mfc0 && addr_cp0_BADVADDR)?CP0_BADVADDR:
+                 (mfc0 && addr_cp0_EntryHi)? CP0_EntryHi:
+                 (mfc0 && addr_cp0_EntryLo0)?CP0_EntryLo0:
+                 (mfc0 && addr_cp0_EntryLo1)?CP0_EntryLo1:
+                 (mfc0 && addr_cp0_Index)?   CP0_Index:                 
                  ws_final_result;
 
 wire mark_interrupt;
