@@ -51,11 +51,11 @@ module wb_stage(
     output [31:0] EntryHi,
     input  [ 5:0] TLBP_result,
     //trace debug interface
-    input  [31:0] debug_wb_pc     ,
-    input  [ 3:0] debug_wb_rf_wen ,
-    input  [ 4:0] debug_wb_rf_wnum,
-    input  [31:0] debug_wb_rf_wdata,
-    input  [31:0] EPC
+    output  [31:0] debug_wb_pc     ,
+    output  [ 3:0] debug_wb_rf_wen ,
+    output  [ 4:0] debug_wb_rf_wnum,
+    output  [31:0] debug_wb_rf_wdata,
+    output  [31:0] EPC
 );
 
 reg         ws_valid;
@@ -293,7 +293,11 @@ reg [18:0] VPN2;
 reg [ 7:0] ASID;
 always @(posedge clk)
 begin
-    if(mtc0_we && addr_cp0_EntryHi) begin
+    if(reset) begin
+      VPN2 <= 19'b0;
+      ASID <= 8'b0;
+    end
+    else if(mtc0_we && addr_cp0_EntryHi) begin
       VPN2 <= cp0_msg[31:13];
       ASID <= cp0_msg[ 7: 0];
     end
@@ -301,11 +305,7 @@ begin
       VPN2 <= r_vpn2;
       ASID <= r_asid;
     end
-
-end 
-
-
-
+end
 
 wire [31:0] CP0_EntryHi;
 assign CP0_EntryHi = {
@@ -321,7 +321,14 @@ reg D0;
 reg V0;
 reg G0;
 always @(posedge clk) begin
-  if (mtc0_we && addr_cp0_EntryLo0) begin
+  if (reset) begin
+    PFN0 <= 20'b0;
+    C0   <= 3'b0;
+    D0   <= 1'b0;
+    V0   <= 1'b0;
+    G0   <= 1'b0;
+  end
+  else if (mtc0_we && addr_cp0_EntryLo0) begin
     PFN0 <= cp0_msg[25:6];
     C0   <= cp0_msg[ 5:3];
     D0   <= cp0_msg[ 2];
@@ -343,7 +350,14 @@ reg D1;
 reg V1;
 reg G1;
 always @(posedge clk) begin
-  if (mtc0_we && addr_cp0_EntryLo1) begin
+  if (reset) begin
+    PFN1 <= 20'b0;
+    C1   <= 3'b0;
+    D1   <= 1'b0;
+    V1   <= 1'b0;
+    G1   <= 1'b0;
+  end
+  else if (mtc0_we && addr_cp0_EntryLo1) begin
     PFN1 <= cp0_msg[25:6];
     C1   <= cp0_msg[ 5:3];
     D1   <= cp0_msg[ 2];
@@ -370,7 +384,11 @@ reg   Found;
 reg   [3:0] Index;
 always @(posedge clk)
 begin
-    if(mtc0_we && addr_cp0_Index) begin
+    if(reset) begin
+      Found <= 1'b0;
+      Index <= 4'b0;
+    end
+    else if(mtc0_we && addr_cp0_Index) begin
       //write to Found not allowed
       Index <= cp0_msg[ 3:0];
     end
