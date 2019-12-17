@@ -12,7 +12,7 @@ module wb_stage(
     //to rf: for write back
     output [`WS_TO_RF_BUS_WD -1:0]  ws_to_rf_bus  ,
     output [`WS_RES          -1:0]  ws_res,
-    output [ 6:0]                   exception     ,
+    output [ 11:0]                   exception     ,
 
 //write port
     output we,
@@ -88,7 +88,12 @@ wire integer_overflow;
 wire breakpoint;
 wire reserved_instruction;
 wire interrupt;
-assign {  interrupt,            //6:6
+wire tlb_modified;
+wire [1:0]tlb_refill,tlb_invalid;
+assign {  tlb_modified,
+          tlb_invalid,
+          tlb_refill,
+          interrupt,            //6:6
           reserved_instruction, //5:5
           breakpoint,           //4:4
           integer_overflow,     //3:3
@@ -108,6 +113,7 @@ assign eret = (cp0_msg[41:40] == 2'b11)? 1 : 0;
 wire tlbp;
 wire tlbwi;
 wire tlbr;
+reg tlbp_r;
 assign  { tlbp,      //2:2
           tlbwi,     //1:1
           tlbr       //0:0
@@ -226,7 +232,10 @@ end
 reg  [ 4:0]  cp0_cause_ExcCode;
 wire [ 4:0]  wb_excode;
 // interrupt has the highest priority
-assign wb_excode = (interrupt)?           6'h00 :
+assign wb_excode = (tlb_refill[0]||tlb_invalid[0])?       6'h02 :
+                   (tlb_refill[1]||tlb_invalid[1])?       6'h03 :
+                   (tlb_modified)?        6'h01 :
+                   (interrupt)?           6'h00 :
                    (address_error_read)?  6'h04 :
                    (reserved_instruction)?6'h0a:
                    (syscall)?             6'h08 :
@@ -283,7 +292,7 @@ end
 reg  [31:0] CP0_BADVADDR;
   // pc addr_error comes first
 always @(posedge clk) begin
-  if (exception && (address_error_read || address_error_write) ) 
+  if (exception && (address_error_read || address_error_write||tlb_refill||tlb_invalid||tlb_modified) ) 
     CP0_BADVADDR <= wb_badvaddr;
 end
 
@@ -294,18 +303,26 @@ reg [ 7:0] ASID;
 always @(posedge clk)
 begin
     if(reset) begin
-      VPN2 <= 19'b0;
-      ASID <= 8'b0;
+      VPN2 <= 0;
+      ASID <= 0;
     end
-    else if(mtc0_we && addr_cp0_EntryHi) begin
+    if(mtc0_we && addr_cp0_EntryHi) begin
       VPN2 <= cp0_msg[31:13];
       ASID <= cp0_msg[ 7: 0];
+    end
+    else if (tlb_refill||tlb_invalid||tlb_modified)begin
+      VPN2 <= wb_badvaddr[31:13];
+      ASID <= cp0_msg[7:0];
     end
     else if (tlbr && ws_valid && !exception) begin
       VPN2 <= r_vpn2;
       ASID <= r_asid;
     end
-end
+
+end 
+
+
+
 
 wire [31:0] CP0_EntryHi;
 assign CP0_EntryHi = {
@@ -322,11 +339,12 @@ reg V0;
 reg G0;
 always @(posedge clk) begin
   if (reset) begin
-    PFN0 <= 20'b0;
-    C0   <= 3'b0;
-    D0   <= 1'b0;
-    V0   <= 1'b0;
-    G0   <= 1'b0;
+    PFN0 <= 0;
+    C0   <= 0;
+    D0   <= 0;
+    V0   <= 0;
+    G0   <= 0; 
+
   end
   else if (mtc0_we && addr_cp0_EntryLo0) begin
     PFN0 <= cp0_msg[25:6];
@@ -351,11 +369,12 @@ reg V1;
 reg G1;
 always @(posedge clk) begin
   if (reset) begin
-    PFN1 <= 20'b0;
-    C1   <= 3'b0;
-    D1   <= 1'b0;
-    V1   <= 1'b0;
-    G1   <= 1'b0;
+    PFN1 <= 0;
+    C1   <= 0;
+    D1   <= 0;
+    V1   <= 0;
+    G1   <= 0; 
+
   end
   else if (mtc0_we && addr_cp0_EntryLo1) begin
     PFN1 <= cp0_msg[25:6];
@@ -385,8 +404,8 @@ reg   [3:0] Index;
 always @(posedge clk)
 begin
     if(reset) begin
-      Found <= 1'b0;
       Index <= 4'b0;
+      Found <= 1'b0;
     end
     else if(mtc0_we && addr_cp0_Index) begin
       //write to Found not allowed
@@ -406,8 +425,25 @@ assign CP0_Index = {
                     Index   //3:0
                     };
 
-// TLB 
-assign TLBP = tlbp;
+// TLB
+reg sign; 
+always @(posedge clk)
+begin
+    if(reset)
+       sign<=0;
+    else
+       sign<=tlbp;
+end
+always @(posedge clk)
+begin
+    if(reset)
+       tlbp_r<=0;
+    else if(tlbp==1&&sign==0)
+       tlbp_r<=1;
+    else if(tlbp_r==1)
+       tlbp_r<=0;
+end
+assign TLBP = tlbp_r;
 assign EntryHi = CP0_EntryHi;
 
 wire TLBP_valid;
@@ -469,7 +505,8 @@ end
 assign rf_we    = (~ws_valid || exception)? 4'h0:
                                  ws_gr_we;
 
-assign rf_waddr = ws_dest;
+assign rf_waddr = (mfc0)?cp0_msg[4:0]:
+                  ws_dest;
 assign rf_wdata =(mfc0 && addr_cp0_status)?  cp0_status:
                  (mfc0 && addr_cp0_cause)?   cp0_cause:
                  (mfc0 && addr_cp0_EPC)?     cp0_EPC: 

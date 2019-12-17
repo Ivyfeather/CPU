@@ -13,11 +13,12 @@ module mem_stage(
     output                         ms_to_ws_valid,
     output [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus  ,
     output [`MS_RES          -1:0] ms_res        ,
-    output [6:0]                   memexc        ,
+    output [11:0]                   memexc        ,
     //from data-sram
     input  [31                 :0] data_sram_rdata ,
     input                          data_sram_dataok,
-    input  [6:0]                   wbexc
+    input  [11:0]                   wbexc,
+    output                         tlbwi
 );
 
 reg         ms_valid;
@@ -34,8 +35,8 @@ wire [31:0] to_badvaddr;
 // lab 7
 wire [ 6:0] ms_memop_type;  
 wire [ 4:0] addr_low2b;
-wire [ 6:0] fromexception;
-wire [ 6:0] toexception;
+wire [ 11:0] fromexception;
+wire [ 11:0] toexception;
 wire [41:0] cp0_msg;
 wire        at_delay_slot;
 wire        es_store;
@@ -56,6 +57,7 @@ assign {tlb_type       ,  //168:166
         ms_pc             //31:0
        } = es_to_ms_bus_r;
 assign addr_low2b[4:2] = 3'b0; 
+assign tlbwi=(tlb_type==3'b010);
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 wire word;
@@ -73,8 +75,16 @@ wire integer_overflow;
 wire breakpoint;
 wire reserved_instruction;
 wire interrupt;
-wire [ 6:0] exception;
-assign exception = {  interrupt,            //6:6
+wire [ 11:0] exception;
+wire tlb_modified;
+wire [1:0]tlb_refill,tlb_invalid;
+assign tlb_modified=0;
+assign tlb_refill=2'b0;
+assign tlb_invalid=2'b0;
+assign exception = {  tlb_modified,
+                      tlb_invalid,
+                      tlb_refill,
+                      interrupt,            //6:6
                       reserved_instruction, //5:5
                       breakpoint,           //4:4
                       integer_overflow,     //3:3
@@ -92,7 +102,7 @@ assign breakpoint          = 0;
 assign reserved_instruction= 0;
 assign interrupt           = 0;
 // if address_error, then pass addr to ws; otherwise clear it
-assign to_badvaddr = (toexception[1] || toexception[2])? from_badvaddr : 32'b0;
+assign to_badvaddr = (toexception[1] || toexception[2]||toexception[7]||toexception[8]||toexception[9]||toexception[10]||toexception[11])? from_badvaddr : 32'b0;
 assign toexception = exception | fromexception; 
 
 assign memexc = toexception;
@@ -163,10 +173,15 @@ always @(posedge clk) begin
         ms_valid <= es_to_ms_valid;
     end
 
-    if(wbexc)
-        es_to_ms_bus_r  <= 32'h00000000;
+    if(reset)
+        es_to_ms_bus_r<=0;
+    else if(wbexc)
+        es_to_ms_bus_r  <= 0;
     else if (es_to_ms_valid && ms_allowin) begin
         es_to_ms_bus_r  <= es_to_ms_bus;
+    end
+    else if(es_to_ms_valid==0&&ms_to_ws_valid&&ws_allowin)begin
+        es_to_ms_bus_r<=0;
     end
 end
 

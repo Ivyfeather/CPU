@@ -8,7 +8,7 @@ module id_stage(
     input   [`ES_RES         -1:0] es_res        ,
     input   [`MS_RES         -1:0] ms_res        ,
     input   [`WS_RES         -1:0] ws_res        ,
-    input   [6:0]                  wbexc         ,
+    input   [11:0]                  wbexc         ,
     output                         ds_allowin    ,
     //from fs
     input                          fs_to_ds_valid,
@@ -33,8 +33,8 @@ assign fs_pc = fs_to_ds_bus[31:0];
 
 wire [31:0] ds_inst;
 wire [31:0] ds_pc  ;
-wire [ 6:0]  fromexception;
-wire [ 6:0]  toexception;
+wire [ 11:0]  fromexception;
+wire [ 11:0]  toexception;
 wire [31:0]  bad_pc;
 assign {bad_pc,
         fromexception,
@@ -169,7 +169,7 @@ wire [ 6:0] memop_type;
 wire [ 2:0] tlb_type;
 
 assign br_bus       = {eret, br_taken, br_target};
-assign load_op      = inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lwl | inst_lwr | inst_mfc0;
+assign load_op      = inst_lw | inst_lb | inst_lbu | inst_lh | inst_lhu | inst_lwl | inst_lwr;
 assign store_op     = inst_sw | inst_sb | inst_sh | inst_swl | inst_swr; 
 
 //******* handling exception *******
@@ -180,8 +180,14 @@ wire integer_overflow;
 wire breakpoint;
 wire reserved_instruction;
 wire interrupt;
-wire [ 6:0] exception;
-assign exception = {  interrupt,            //6:6
+wire [ 11:0] exception;
+wire [1:0]tlb_refill;
+wire [1:0]tlb_invalid;
+wire tlb_modified;
+assign exception = {  tlb_modified,
+                      tlb_invalid,
+                      tlb_refill,
+                      interrupt,            //6:6
                       reserved_instruction, //5:5
                       breakpoint,           //4:4
                       integer_overflow,     //3:3
@@ -189,7 +195,9 @@ assign exception = {  interrupt,            //6:6
                       address_error_read,   //1:1
                       syscall               //0:0
                     };
-
+assign tlb_refill=0;
+assign tlb_invalid=0;
+assign tlb_modified=0;
 assign syscall              = inst_syscall;
 assign address_error_read   = 0;
 assign address_error_write  = 0;
@@ -215,7 +223,7 @@ assign tlb_type = { inst_tlbp,      //2:2
                  };
 //======= handling exception =======
 
-assign ds_to_es_bus = (ds_ready_go==1'b0||ds_pc==32'b0)?283'b0:
+assign ds_to_es_bus = (ds_ready_go==1'b0||ds_pc==32'b0)?288'b0:
                       {tlb_type     , //282:280
                        bad_pc       , //279:248       
                        at_delay_slot, //247:247
@@ -357,8 +365,9 @@ assign cp0_msg[41:40] = (inst_mtc0)? 2'b01 :
                         (inst_mfc0)? 2'b10 :
                         (inst_eret)? 2'b11 : 0;
 assign cp0_msg[39:37] = ds_inst[2:0];
-assign cp0_msg[36:32] = ds_inst[15:11];
-assign cp0_msg[31:0] = rt_value;
+assign cp0_msg[36:32] =ds_inst[15:11];
+assign cp0_msg[31:0] =(inst_mfc0)?rt: 
+                       rt_value;
 // memory related info
 assign memop_type[0] = inst_lw | inst_sw;
 assign memop_type[1] = inst_lb | inst_sb;

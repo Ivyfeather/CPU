@@ -9,8 +9,8 @@ module exe_stage(
     //from ds
     input                          ds_to_es_valid,
     input  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus  ,
-    input  [6:0]                   wbexc         ,
-    input  [6:0]                   memexc        ,
+    input  [11:0]                   wbexc         ,
+    input  [11:0]                   memexc        ,
     //to ms
     output                         es_to_ms_valid,
     output [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
@@ -36,7 +36,8 @@ module exe_stage(
     // TLBP from WB
     input  TLBP,
     input  [31:0] EntryHi,
-    output [ 5:0] TLBP_result
+    output [ 5:0] TLBP_result,
+    input tlbwi
 );
 
 reg         es_valid      ;
@@ -71,8 +72,8 @@ wire right;
 wire [31:0] es_badvaddr;
 wire [ 2:0] tlb_type;
 //******* handling exception *******
-wire [6:0]  fromexception;
-wire [6:0]  toexception;
+wire [11:0]  fromexception;
+wire [11:0]  toexception;
 wire [41:0] cp0_msg;
 
 wire syscall;
@@ -82,8 +83,25 @@ wire integer_overflow;
 wire breakpoint;
 wire reserved_instruction;
 wire interrupt;
-wire [ 6:0] exception;
-assign exception = {  interrupt,            //6:6
+wire [ 11:0] exception;
+wire tlb_modified;
+wire [1:0]tlb_refill,tlb_invalid;
+wire unmapped;
+assign unmapped=(es_alu_result[31:28]==4'h8||es_alu_result[31:28]==4'h9||es_alu_result[31:28]==4'ha||es_alu_result[31:28]==4'hb||es_alu_result==32'h0);
+assign tlb_refill=(unmapped)?2'b00:
+                  (unmapped==0&&s1_found==0&&es_load_op)?2'b01:
+                  (unmapped==0&&s1_found==0&&es_mem_we)?2'b10:
+                  0;
+assign tlb_invalid=(unmapped)?2'b00:
+                   (unmapped==0&&s1_found&&s1_v==0&&es_load_op)?2'b01:
+                   (unmapped==0&&s1_found&&s1_v==0&&es_mem_we)?2'b10:
+                   2'b00;
+assign tlb_modified=((es_load_op||es_mem_we)&&unmapped==0)?(s1_found&&s1_v==0&&s1_d==0):
+                     0;
+assign exception = { tlb_modified,
+                     tlb_invalid,
+                     tlb_refill, 
+                     interrupt,            //6:6
                       reserved_instruction, //5:5
                       breakpoint,           //4:4
                       integer_overflow,     //3:3
@@ -98,7 +116,7 @@ assign address_error_write = (es_mem_we && word     && addr_low2b[1:0]!=2'b00 ) 
 
 wire [31:0] bad_pc;
 // has addr_error_read in IF
-assign es_badvaddr = fromexception[1]? bad_pc : es_alu_result;
+assign es_badvaddr = (fromexception[1]||fromexception[7]||fromexception[9]||fromexception[10]||fromexception[11])? bad_pc : es_alu_result;
 
 wire add_overflow;
 wire sub_overflow;
@@ -114,6 +132,9 @@ assign reserved_instruction = 0;
 assign interrupt        = 0;
 
 // integer overflow when add/addi/subu (fromexception[3] == 1)
+assign toexception[11]   = exception[11]  | fromexception[11];
+assign toexception[10:9] = exception[10:9]| fromexception[10:9];
+assign toexception[8:7]  = exception[8:7] | fromexception[8:7];
 assign toexception[6:4]  = exception[6:4] | fromexception[6:4]; 
 assign toexception[3]    = integer_overflow & fromexception[3];
 assign toexception[2:0]  = exception[2:0] | fromexception[2:0]; 
@@ -244,6 +265,7 @@ assign es_to_ms_bus = (es_ready_go==1'b0||es_pc==32'b0)?0:
 
 assign es_ready_go    = (div_ready_go==1'b0)? 1'b0:
                         (data_sram_req && ~data_sram_addrok)? 1'b0:     
+                        (TLBP==1||tlbwi==1)?1'b0:
                         1'b1;
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = es_valid && es_ready_go;
@@ -254,7 +276,9 @@ always @(posedge clk) begin
     else if (es_allowin) begin
         es_valid <= ds_to_es_valid;
     end
-    if(wbexc)
+    if(reset)
+        ds_to_es_bus_r<=32'h0;
+    else if(wbexc)
         ds_to_es_bus_r <=32'h0;
     else if (ds_to_es_valid && es_allowin) begin
         ds_to_es_bus_r <= ds_to_es_bus;
@@ -346,9 +370,10 @@ always @(posedge clk) begin
 end
 //since es_load_op and es_mem_we will appear after edge
 // while in sequential logic upahead, ds_to_es_valid and es_allowin is high before edge
-assign data_sram_req=(memexc||wbexc||address_error_write)?1'b0: 
+assign data_sram_req=(memexc||wbexc||address_error_write||TLBP||tlbwi)?1'b0: 
                      (es_load_op || es_mem_we)?  data_sram_req_r: 1'b0;
-assign data_sram_wr = es_mem_we;
+assign data_sram_wr = (tlb_refill||tlb_invalid||tlb_modified)?1'b0:
+                      es_mem_we;
 
 //assign data_sram_en    = 1'b1;
 wire data_sram_wstrb;
@@ -383,7 +408,8 @@ wire [31:0] swr_data;
 assign swl_data = es_rt_value >> ((~addr_low2b)<<3);
 assign swr_data = es_rt_value << (addr_low2b<<3);
 
-assign data_sram_addr  = es_alu_result;
+assign data_sram_addr  = (es_alu_result[31:28]==4'h8||es_alu_result[31:28]==4'h9||es_alu_result[31:28]==4'ha||es_alu_result[31:28]==4'hb)?es_alu_result|32'h1fffffff:
+                         {s1_pfn,es_alu_result[11:0]};
 assign data_sram_wdata = (byte)?     {4{es_rt_value[ 7:0]}}:
                          (halfword)? {2{es_rt_value[15:0]}}:
                          (left)?     swl_data:
@@ -421,8 +447,10 @@ assign lo1=(es_alu_op[12])?mult_result[31:0]:
     output [ 5:0] TLBP_result
 */
 //////choose between TLBP and MMU, using TLBP signal
-assign s1_vpn2 = EntryHi[31:13];
-assign s1_odd_page = EntryHi[12];
+assign s1_vpn2 =(TLBP==1)? EntryHi[31:13]:
+                es_alu_result[31:13];
+assign s1_odd_page = (TLBP==1)?EntryHi[12]:
+                      es_alu_result[12];
 assign s1_asid = EntryHi[7:0];
 
 wire TLBP_valid;

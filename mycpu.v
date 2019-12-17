@@ -50,8 +50,8 @@ wire [`BR_BUS_WD       -1:0] br_bus;
 wire [`ES_RES          -1:0] es_res;
 wire [`MS_RES          -1:0] ms_res;
 wire [`WS_RES          -1:0] ws_res;
-wire [6:0]                   wbexc;
-wire [6:0]                   memexc;
+wire [11:0]                   wbexc;
+wire [11:0]                   memexc;
 wire [31:0]                  EPC;
 wire                         wr_re;
 
@@ -111,7 +111,7 @@ wire [19:0] r_pfn1;
 wire [ 2:0] r_c1;
 wire r_d1;
 wire r_v1;
-
+wire tlbwi;
 wire [31:0] EntryHi;
 wire TLBP;
 wire [ 5:0] TLBP_result;
@@ -195,7 +195,7 @@ exe_stage exe_stage(
     .data_sram_addrok(data_sram_addrok),
     .wbexc           (wbexc),
     .memexc          (memexc),
-
+    .tlbwi           (tlbwi),
     .s1_vpn2         (s1_vpn2),         // vaddr 31~13 bits 
     .s1_odd_page     (s1_odd_page),     // vaddr 12 bit
     .s1_asid         (s1_asid),         // ASID       
@@ -228,7 +228,8 @@ mem_stage mem_stage(
     .data_sram_rdata (data_sram_rdata ),
     .data_sram_dataok(data_sram_dataok),
     .memexc(memexc),
-    .wbexc(wbexc)
+    .wbexc(wbexc),
+    .tlbwi(tlbwi)
 );
 // WB stage
 wb_stage wb_stage(

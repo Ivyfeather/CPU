@@ -7,7 +7,7 @@ module if_stage(
     input                          ds_allowin     ,
     //brbus
     input  [`BR_BUS_WD       -1:0] br_bus         ,
-    input  [6:0]                   wbexc          ,
+    input  [11:0]                   wbexc          ,
     //to ds
     output                         fs_to_ds_valid ,
     output [`FS_TO_DS_BUS_WD -1:0] fs_to_ds_bus   ,
@@ -33,9 +33,11 @@ module if_stage(
     input     s0_v    
 
 );
+wire unmapped;
+assign unmapped=(nextpc[31:28]==8||nextpc[31:28]==9||nextpc[31:28]==4'b1010||nextpc[31:28]==4'b1011);
 ////// not yet use TLB
-assign s0_vpn2 = 19'b0;
-assign s0_odd_page = 0;
+assign s0_vpn2 = nextpc[31:13];
+assign s0_odd_page = nextpc[12];
 assign s0_asid = 8'b0;
 //////
 
@@ -53,7 +55,7 @@ wire         eret;
 assign {eret, br_taken, br_target} = br_bus;
 
 wire [31:0] fs_inst;
-wire [6:0]  toexception;
+wire [11:0]  toexception;
 reg  [31:0] fs_pc;
 wire [31:0] bad_pc;
 wire PC_addr_error;
@@ -61,7 +63,7 @@ reg fs_ready_go_r;
 // to store br_target
 reg         buf_valid;
 reg [31:0]  buf_npc;
-reg [6 :0]  wbexc_r;
+reg [11 :0]  wbexc_r;
 reg         eret_r;
 reg [31:0]  EPC;
 // truenpc = buf_valid? buf_pc : nextpc;
@@ -105,7 +107,9 @@ always @(posedge clk) begin
 
 end
 
-assign bad_pc = (PC_addr_error)? fs_pc : 32'b0;
+assign bad_pc = (PC_addr_error)? fs_pc : 
+                (tlb_refill||tlb_invalid||tlb_modified )?nextpc:
+                 32'b0;
 assign fs_to_ds_bus =(wbexc_r||eret_r)?0: 
                      {bad_pc,       //102:71
                        toexception, //70:64
@@ -121,7 +125,8 @@ assign seq_pc       = fs_pc + 3'h4;
 // assign nextpc       = wbexc ? 32'hbfc00380:
 //                       br_taken ? br_target : 
 //                       seq_pc; 
-assign nextpc = wbexc_r? 32'hbfc00380:
+assign nextpc = (wbexc_r[7]||wbexc_r[8])?32'hbfc00200:
+                wbexc_r? 32'hbfc00380:
                 eret_r? EPC  :
                 buf_valid? buf_npc:
                 seq_pc;
@@ -129,8 +134,22 @@ assign nextpc = wbexc_r? 32'hbfc00380:
 
 
 // PC addr error
+wire tlb_modified;
+wire [1:0]tlb_refill,tlb_invalid;
+assign tlb_modified=(unmapped)?1'b0:
+                    (s0_d==0&&s0_v==1&&inst_sram_wr==1);
+assign tlb_invalid=(unmapped)?2'b0:
+                   (s0_found==1&&s0_v==0)?2'b01:
+                   2'b00;
+assign tlb_refill=(unmapped)?2'b0:
+                  (s0_found==0)?2'b01:
+                  2'b00;
+
 assign PC_addr_error = (fs_pc[1:0] != 2'b00)? 1 : 0;
-assign toexception = {  5'b0,           //6:2
+assign toexception = {  tlb_modified,
+                        tlb_invalid,
+                        tlb_refill,
+                        5'b0,           //6:2
                         PC_addr_error,  //1:1
                         1'b0            //0:0   
                     };
@@ -212,7 +231,8 @@ end
 assign inst_sram_req =(wr_re==1)?0: 
                       inst_sram_req_r;
 
-assign inst_sram_addr = nextpc;
+assign inst_sram_addr = (unmapped==0)?{s0_pfn,nextpc[11:0]}:
+                        nextpc&32'h1fffffff; 
 
 // IF do not write Inst Sram
 assign inst_sram_wr = 1'b0;
