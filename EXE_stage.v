@@ -96,7 +96,7 @@ assign tlb_invalid=(unmapped)?2'b00:
                    (unmapped==0&&s1_found&&s1_v==0&&es_load_op)?2'b01:
                    (unmapped==0&&s1_found&&s1_v==0&&es_mem_we)?2'b10:
                    2'b00;
-assign tlb_modified=((es_load_op||es_mem_we)&&unmapped==0)?(s1_found&&s1_v==0&&s1_d==0):
+assign tlb_modified=(es_mem_we&&unmapped==0)?(s1_found&&s1_v==1&&s1_d==0):
                      0;
 assign exception = { tlb_modified,
                      tlb_invalid,
@@ -408,7 +408,7 @@ wire [31:0] swr_data;
 assign swl_data = es_rt_value >> ((~addr_low2b)<<3);
 assign swr_data = es_rt_value << (addr_low2b<<3);
 
-assign data_sram_addr  = (es_alu_result[31:28]==4'h8||es_alu_result[31:28]==4'h9||es_alu_result[31:28]==4'ha||es_alu_result[31:28]==4'hb)?es_alu_result|32'h1fffffff:
+assign data_sram_addr  = (es_alu_result[31:28]==4'h8||es_alu_result[31:28]==4'h9||es_alu_result[31:28]==4'ha||es_alu_result[31:28]==4'hb)?es_alu_result&32'h1fffffff:
                          {s1_pfn,es_alu_result[11:0]};
 assign data_sram_wdata = (byte)?     {4{es_rt_value[ 7:0]}}:
                          (halfword)? {2{es_rt_value[15:0]}}:

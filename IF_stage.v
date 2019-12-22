@@ -35,11 +35,11 @@ module if_stage(
 );
 wire unmapped;
 assign unmapped=(nextpc[31:28]==8||nextpc[31:28]==9||nextpc[31:28]==4'b1010||nextpc[31:28]==4'b1011);
-////// not yet use TLB
+
 assign s0_vpn2 = nextpc[31:13];
 assign s0_odd_page = nextpc[12];
 assign s0_asid = 8'b0;
-//////
+
 
 reg         fs_valid;
 wire        fs_ready_go;
@@ -77,6 +77,9 @@ always @(posedge clk) begin
 
     if (br_taken && inst_sram_addrok) begin //addr in delay slot accepted
         branch <= 2;
+    end
+    else if (wbexc_r) begin
+        branch <= 0;
     end
     else if (br_taken&&eret==0) begin
         branch <= 1;

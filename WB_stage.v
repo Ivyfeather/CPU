@@ -482,7 +482,7 @@ assign ws_to_rf_bus = {rf_we   ,  //40:37
                        rf_wdata   //31:0
                       };
 
-assign ws_ready_go = 1'b1;
+assign ws_ready_go = (tlbp && tlbp_r==0)? 1'b0 : 1'b1;
 assign ws_allowin  = !ws_valid || ws_ready_go;
 always @(posedge clk) begin
     if (reset) begin
